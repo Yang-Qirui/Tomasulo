@@ -1,3 +1,4 @@
+#include <iostream>
 #include <stdio.h>
 #include <string.h>
 
@@ -34,24 +35,26 @@
 #define INT1 4
 #define INT2 5
 
-#define NUMUNITS 6                                                                 /* 执行单元数量 */
-char *unitname[NUMUNITS] = {"LOAD1", "LOAD2", "STORE1", "STORE2", "INT1", "INT2"}; /* 执行单元的名称 */
+#define NUMUNITS 6 /* 执行单元数量 */
+char *unitname[NUMUNITS] = {"LOAD1",  "LOAD2", "STORE1",
+                            "STORE2", "INT1",  "INT2"}; /* 执行单元的名称 */
 
 /*
  * 不同操作所需要的周期数
  */
 #define BRANCHEXEC 3 /* 分支操作 */
-#define LDEXEC 2     /* Load     */
-#define STEXEC 2     /* Store    */
-#define INTEXEC 1    /* 整数运算 */
+#define LDEXEC 2 /* Load     */
+#define STEXEC 2 /* Store    */
+#define INTEXEC 1 /* 整数运算 */
 
 /*
  * 指令状态*/
-#define ISSUE 0                                                                /* 发射   */
-#define EXECUTING 1                                                            /* 执行   */
-#define WRITINGRESULT 2                                                        /* 写结果 */
-#define COMMITTING 3                                                           /* 提交   */
-char *statename[4] = {"ISSUING", "EXECUTING", "WRITINGRESULT", "COMMTITTING"}; /*  状态名称 */
+#define ISSUE 0 /* 发射   */
+#define EXECUTING 1 /* 执行   */
+#define WRITINGRESULT 2 /* 写结果 */
+#define COMMITTING 3 /* 提交   */
+char *statename[4] = {"ISSUING", "EXECUTING", "WRITINGRESULT",
+                      "COMMTITTING"}; /*  状态名称 */
 
 #define RBSIZE 16 /* ROB有16个单元 */
 #define BTBSIZE 8 /* 分支预测缓冲栈有8个单元 */
@@ -70,11 +73,10 @@ char *statename[4] = {"ISSUING", "EXECUTING", "WRITINGRESULT", "COMMTITTING"}; /
 #define NOTTAKEN 0
 #define TAKEN 1
 
-typedef struct _resStation
-{            /* 保留栈的数据结构 */
-  int instr; /*    指令    */
-  int busy;  /* 空闲标志位 */
-  int Vj;    /* Vj, Vk 存放操作数 */
+typedef struct _resStation { /* 保留栈的数据结构 */
+  int instr;                 /*    指令    */
+  int busy;                  /* 空闲标志位 */
+  int Vj;                    /* Vj, Vk 存放操作数 */
   int Vk;
   int Qj;         /* Qj, Qk 存放将会生成结果的执行单元编号 */
   int Qk;         /* 为零则表示对应的V有效 */
@@ -82,33 +84,28 @@ typedef struct _resStation
   int reorderNum; /* 该指令对应的ROB项编号 */
 } resStation;
 
-typedef struct _reorderEntry
-{                   /* ROB项的数据结构 */
-  int busy;         /* 空闲标志位 */
-  int instr;        /* 指令 */
-  int execUnit;     /* 执行单元编号 */
-  int instrStatus;  /* 指令的当前状态 */
-  int valid;        /* 表明结果是否有效的标志位 */
-  int result;       /* 在提交之前临时存放结果 */
-  int storeAddress; /* store指令的内存地址 */
+typedef struct _reorderEntry { /* ROB项的数据结构 */
+  int busy;                    /* 空闲标志位 */
+  int instr;                   /* 指令 */
+  int execUnit;                /* 执行单元编号 */
+  int instrStatus;             /* 指令的当前状态 */
+  int result;                  /* 在提交之前临时存放结果 */
+  int storeAddress;            /* store指令的内存地址 */
 } reorderEntry;
 
-typedef struct _regResultEntry
-{                 /* 寄存器状态的数据结构 */
-  int valid;      /* 1表示寄存器值有效, 否则0 */
+typedef struct _regResultEntry { /* 寄存器状态的数据结构 */
+  int valid;                     /* 1表示寄存器值有效, 否则0 */
   int reorderNum; /* 如果值无效, 记录ROB中哪个项目会提交结果 */
 } regResultEntry;
 
-typedef struct _btbEntry
-{                   /* 分支预测缓冲栈的数据结构 */
-  int valid;        /* 有效位 */
-  int branchPC;     /* 分支指令的PC值 */
-  int branchTarget; /* when predict taken, update PC with target */
-  int branchPred;   /* 预测：2-bit分支历史 */
+typedef struct _btbEntry { /* 分支预测缓冲栈的数据结构 */
+  int valid;               /* 有效位 */
+  int branchPC;            /* 分支指令的PC值 */
+  int branchTarget;        /* when predict taken, update PC with target */
+  int branchPred;          /* 预测：2-bit分支历史 */
 } btbEntry;
 
-typedef struct _machineState
-{                                    /* 虚拟机状态的数据结构 */
+typedef struct _machineState {       /* 虚拟机状态的数据结构 */
   int pc;                            /* PC */
   int cycles;                        /* 已经过的周期数 */
   resStation reservation[NUMUNITS];  /* 保留栈 */
@@ -117,6 +114,9 @@ typedef struct _machineState
   btbEntry btBuf[BTBSIZE];           /* 分支预测缓冲栈 */
   int memory[MEMSIZE];               /* 内存   */
   int regFile[NUMREGS];              /* 寄存器 */
+  int headRB;
+  int tailRB;
+  bool clear;
 } machineState;
 
 int field0(int);
@@ -126,8 +126,7 @@ int opcode(int);
 
 void printInstruction(int);
 
-void printState(machineState *statePtr, int memorySize)
-{
+void printState(machineState *statePtr, int memorySize) {
   int i;
 
   printf("Cycles: %d\n", statePtr->cycles);
@@ -135,53 +134,43 @@ void printState(machineState *statePtr, int memorySize)
   printf("\t pc=%d\n", statePtr->pc);
 
   printf("\t Reservation stations:\n");
-  for (i = 0; i < NUMUNITS; i++)
-  {
-    if (statePtr->reservation[i].busy == 1)
-    {
+  for (i = 0; i < NUMUNITS; i++) {
+    if (statePtr->reservation[i].busy == 1) {
       printf("\t \t Reservation station %d: ", i);
-      if (statePtr->reservation[i].Qj == 0)
-      {
+      if (statePtr->reservation[i].Qj == -1) {
         printf("Vj = %d ", statePtr->reservation[i].Vj);
+      } else {
+        printf("Qj = '%s' ", unitname[statePtr->reservation[i].Qj]);
       }
-      else
-      {
-        printf("Qj = '%s' ", unitname[statePtr->reservation[i].Qj - 1]);
-      }
-      if (statePtr->reservation[i].Qk == 0)
-      {
+      if (statePtr->reservation[i].Qk == -1) {
         printf("Vk = %d ", statePtr->reservation[i].Vk);
+      } else {
+        printf("Qk = '%s' ", unitname[statePtr->reservation[i].Qk]);
       }
-      else
-      {
-        printf("Qk = '%s' ", unitname[statePtr->reservation[i].Qk - 1]);
-      }
-      printf(" ExTimeLeft = %d  RBNum = %d\n",
+      printf(" ExTimeLeft = %d  RBNum = %d busy = %d\n",
              statePtr->reservation[i].exTimeLeft,
-             statePtr->reservation[i].reorderNum);
+             statePtr->reservation[i].reorderNum,
+             statePtr->reservation[i].busy);
     }
   }
 
   printf("\t Reorder buffers:\n");
-  for (i = 0; i < RBSIZE; i++)
-  {
-    if (statePtr->reorderBuf[i].busy == 1)
-    {
+  for (i = 0; i < RBSIZE; i++) {
+    if (statePtr->reorderBuf[i].busy == 1) {
       printf("\t \t Reorder buffer %d: ", i);
-      printf("instr %d  executionUnit '%s'  state %s  valid %d  result %d storeAddress %d\n",
+      printf(" instr %d  executionUnit '%s'  state %s  result %d "
+             " storeAddress %d\n",
              statePtr->reorderBuf[i].instr,
-             unitname[statePtr->reorderBuf[i].instr, statePtr->reorderBuf[i].execUnit - 1],
+             unitname[statePtr->reorderBuf[i].execUnit],
              statename[statePtr->reorderBuf[i].instrStatus],
-             statePtr->reorderBuf[i].valid, statePtr->reorderBuf[i].result,
+             statePtr->reorderBuf[i].result,
              statePtr->reorderBuf[i].storeAddress);
     }
   }
 
   printf("\t Register result status:\n");
-  for (i = 1; i < NUMREGS; i++)
-  {
-    if (!statePtr->regResult[i].valid)
-    {
+  for (i = 1; i < NUMREGS; i++) {
+    if (!statePtr->regResult[i].valid) {
       printf("\t \t Register %d: ", i);
       printf("waiting for reorder buffer number %d\n",
              statePtr->regResult[i].reorderNum);
@@ -202,14 +191,12 @@ void printState(machineState *statePtr, int memorySize)
   }*/
 
   printf("\t Memory:\n");
-  for (i = 0; i < memorySize; i++)
-  {
+  for (i = 0; i < memorySize; i++) {
     printf("\t \t memory[%d] = %d\n", i, statePtr->memory[i]);
   }
 
   printf("\t Registers:\n");
-  for (i = 0; i < NUMREGS; i++)
-  {
+  for (i = 0; i < NUMREGS; i++) {
     printf("\t \t regFile[%d] = %d\n", i, statePtr->regFile[i]);
   }
 }
@@ -220,8 +207,7 @@ void printState(machineState *statePtr, int memorySize)
  *可以考虑使用高级语言中的位和逻辑运算
  */
 
-int field0(int instruction)
-{
+int field0(int instruction) {
   /*
    *[TODO]
    *返回指令的第一个寄存器RS1
@@ -230,8 +216,7 @@ int field0(int instruction)
   return reg1;
 }
 
-int field1(int instruction)
-{
+int field1(int instruction) {
   /*
    *[TODO]
    *返回指令的第二个寄存器，RS2或者Rd
@@ -240,8 +225,7 @@ int field1(int instruction)
   return reg2;
 }
 
-int field2(int instruction)
-{
+int field2(int instruction) {
   /*
    *[TODO]
    *返回指令的第三个寄存器，Rd
@@ -250,8 +234,7 @@ int field2(int instruction)
   return reg3;
 }
 
-int immediate(int instruction)
-{
+int immediate(int instruction) {
   /*
    *[TODO]
    *返回I型指令的立即数部分
@@ -260,8 +243,7 @@ int immediate(int instruction)
   return imm;
 }
 
-int jumpAddr(int instruction)
-{
+int jumpAddr(int instruction) {
   /*
    *[TODO]
    *返回J型指令的跳转地址
@@ -270,18 +252,16 @@ int jumpAddr(int instruction)
   return addr;
 }
 
-int opcode(int instruction)
-{
+int opcode(int instruction) {
   /*
    *[TODO]
    *返回指令的操作码
    */
-  int opcode = instruction >> 26;
+  int opcode = (instruction >> 26) & 0x3f;
   return opcode;
 }
 
-int func(int instruction)
-{
+int func(int instruction) {
   /*
    *[TODO]
    *返回R型指令的功能域
@@ -290,132 +270,96 @@ int func(int instruction)
   return func;
 }
 
-void printInstruction(int instr)
-{
+void printInstruction(int instr) {
   char opcodeString[10];
   char funcString[11];
   int funcCode;
   int op;
 
-  if (opcode(instr) == regRegALU)
-  {
+  if (opcode(instr) == regRegALU) {
     funcCode = func(instr);
-    if (funcCode == addFunc)
-    {
+    if (funcCode == addFunc) {
       strcpy(opcodeString, "add");
-    }
-    else if (funcCode == subFunc)
-    {
+    } else if (funcCode == subFunc) {
       strcpy(opcodeString, "sub");
-    }
-    else if (funcCode == andFunc)
-    {
+    } else if (funcCode == andFunc) {
       strcpy(opcodeString, "and");
-    }
-    else
-    {
+    } else {
       strcpy(opcodeString, "alu");
     }
     printf("%s %d %d %d \n", opcodeString, field0(instr), field1(instr),
            field2(instr));
-  }
-  else if (opcode(instr) == LW)
-  {
+  } else if (opcode(instr) == LW) {
     strcpy(opcodeString, "lw");
     printf("%s %d %d %d\n", opcodeString, field0(instr), field1(instr),
            immediate(instr));
-  }
-  else if (opcode(instr) == SW)
-  {
+  } else if (opcode(instr) == SW) {
     strcpy(opcodeString, "sw");
     printf("%s %d %d %d\n", opcodeString, field0(instr), field1(instr),
            immediate(instr));
-  }
-  else if (opcode(instr) == ADDI)
-  {
+  } else if (opcode(instr) == ADDI) {
     strcpy(opcodeString, "addi");
     printf("%s %d %d %d\n", opcodeString, field0(instr), field1(instr),
            immediate(instr));
-  }
-  else if (opcode(instr) == ANDI)
-  {
+  } else if (opcode(instr) == ANDI) {
     strcpy(opcodeString, "andi");
     printf("%s %d %d %d\n", opcodeString, field0(instr), field1(instr),
            immediate(instr));
-  }
-  else if (opcode(instr) == BEQZ)
-  {
+  } else if (opcode(instr) == BEQZ) {
     strcpy(opcodeString, "beqz");
     printf("%s %d %d %d\n", opcodeString, field0(instr), field1(instr),
            immediate(instr));
-  }
-  else if (opcode(instr) == J)
-  {
+  } else if (opcode(instr) == J) {
     strcpy(opcodeString, "j");
     printf("%s %d\n", opcodeString, jumpAddr(instr));
-  }
-  else if (opcode(instr) == HALT)
-  {
+  } else if (opcode(instr) == HALT) {
     strcpy(opcodeString, "halt");
     printf("%s\n", opcodeString);
-  }
-  else if (opcode(instr) == NOOP)
-  {
+  } else if (opcode(instr) == NOOP) {
     strcpy(opcodeString, "noop");
     printf("%s\n", opcodeString);
-  }
-  else
-  {
+  } else {
     strcpy(opcodeString, "data");
     printf("%s %d\n", opcodeString, instr);
   }
 }
 
-int convertNum16(int num)
-{
+int convertNum16(int num) {
   /* convert an 16 bit number into a 32-bit or 64-bit number */
-  if (num & 0x8000)
-  {
+  if (num & 0x8000) {
     num -= 65536;
   }
   return (num);
 }
 
-int convertNum26(int num)
-{
+int convertNum26(int num) {
   /* convert an 26 bit number into a 32-bit or 64-bit number */
-  if (num & 0x200000)
-  {
+  if (num & 0x200000) {
     num -= 67108864;
   }
   return (num);
 }
 
-void updateRes(int unit, machineState *statePtr, int value)
-{
+void updateRes(int unit, machineState *statePtr, int value) {
   /*
    *[TODO]
    * 更新保留栈:
    * 将位于公共数据总线上的数据
    * 复制到正在等待它的其他保留栈中去
    */
-  for (int i = 0; i < NUMUNITS; i++)
-  {
-    if (statePtr->reservation[i].Qj == unit)
-    {
+  for (int i = 0; i < NUMUNITS; i++) {
+    if (statePtr->reservation[i].Qj == unit) {
       statePtr->reservation[i].Vj = value;
       statePtr->reservation[i].Qj = -1;
     }
-    if (statePtr->reservation[i].Qk == unit)
-    {
+    if (statePtr->reservation[i].Qk == unit) {
       statePtr->reservation[i].Vk = value;
       statePtr->reservation[i].Qk = -1;
     }
   }
 }
 
-void issueInstr(int instr, int unit, machineState *statePtr, int reorderNum)
-{
+void issueInstr(int instr, int unit, machineState *statePtr, int reorderNum) {
 
   /*
    * [TODO]
@@ -436,79 +380,59 @@ void issueInstr(int instr, int unit, machineState *statePtr, int reorderNum)
   statePtr->reorderBuf[reorderNum].instrStatus = ISSUE;
   statePtr->reorderBuf[reorderNum].busy = 1;
   int op = opcode(instr);
-  if (op == LW)
-  {
-    if (statePtr->regResult[field0(instr)].valid == 1)
-    {
+  if (op == LW) {
+    if (statePtr->regResult[field0(instr)].valid == 1) {
       statePtr->reservation[unit].Vj = statePtr->regFile[field0(instr)];
       statePtr->reservation[unit].Qj = -1;
-    }
-    else
-    {
-      statePtr->reservation[unit].Qj = statePtr->regResult[field0(instr)].reorderNum;
+    } else {
+      statePtr->reservation[unit].Qj =
+          statePtr->regResult[field0(instr)].reorderNum;
     }
     statePtr->reservation[unit].Vk = 0;
     statePtr->reservation[unit].Qk = -1;
     statePtr->reservation[unit].exTimeLeft = LDEXEC;
     statePtr->regResult[field1(instr)].valid = 0;
     statePtr->regResult[field1(instr)].reorderNum = reorderNum;
-  }
-  else if (op == SW)
-  {
-    if (statePtr->regResult[field0(instr)].valid == 1)
-    {
+  } else if (op == SW) {
+    if (statePtr->regResult[field0(instr)].valid == 1) {
       statePtr->reservation[unit].Vj = statePtr->regFile[field0(instr)];
       statePtr->reservation[unit].Qj = -1;
+    } else {
+      statePtr->reservation[unit].Qj =
+          statePtr->regResult[field0(instr)].reorderNum;
     }
-    else
-    {
-      statePtr->reservation[unit].Qj = statePtr->regResult[field0(instr)].reorderNum;
-    }
-    if (statePtr->regResult[field1(instr)].valid == 1)
-    {
+    if (statePtr->regResult[field1(instr)].valid == 1) {
       statePtr->reservation[unit].Vk = statePtr->regFile[field1(instr)];
       statePtr->reservation[unit].Qk = -1;
-    }
-    else
-    {
-      statePtr->reservation[unit].Qk = statePtr->regResult[field1(instr)].reorderNum;
+    } else {
+      statePtr->reservation[unit].Qk =
+          statePtr->regResult[field1(instr)].reorderNum;
     }
     statePtr->reservation[unit].exTimeLeft = STEXEC;
-  }
-  else if (op == regRegALU)
-  {
+  } else if (op == regRegALU) {
     /* R型指令*/
-    if (statePtr->regResult[field0(instr)].valid == 1)
-    {
+    if (statePtr->regResult[field0(instr)].valid == 1) {
       statePtr->reservation[unit].Vj = statePtr->regFile[field0(instr)];
       statePtr->reservation[unit].Qj = -1;
+    } else {
+      statePtr->reservation[unit].Qj =
+          statePtr->regResult[field0(instr)].reorderNum;
     }
-    else
-    {
-      statePtr->reservation[unit].Qj = statePtr->regResult[field0(instr)].reorderNum;
-    }
-    if (statePtr->regResult[field1(instr)].valid == 1)
-    {
+    if (statePtr->regResult[field1(instr)].valid == 1) {
       statePtr->reservation[unit].Vk = statePtr->regFile[field1(instr)];
       statePtr->reservation[unit].Qk = -1;
-    }
-    else
-    {
-      statePtr->reservation[unit].Qk = statePtr->regResult[field1(instr)].reorderNum;
+    } else {
+      statePtr->reservation[unit].Qk =
+          statePtr->regResult[field1(instr)].reorderNum;
     }
     statePtr->reservation[unit].exTimeLeft = INTEXEC;
     statePtr->regResult[field2(instr)].valid = 0;
     statePtr->regResult[field2(instr)].reorderNum = reorderNum;
-  }
-  else if (op == ADDI || op == ANDI)
-  {
-    if (statePtr->regResult[field0(instr)].valid)
-    {
+  } else if (op == ADDI || op == ANDI) {
+    if (statePtr->regResult[field0(instr)].valid == 1) {
       statePtr->reservation[unit].Vj = statePtr->regFile[field0(instr)];
       statePtr->reservation[unit].Qj = -1;
-    }
-    else
-    {
+    } else {
       statePtr->reservation[unit].Qj =
           statePtr->regResult[field0(instr)].reorderNum;
     }
@@ -517,33 +441,24 @@ void issueInstr(int instr, int unit, machineState *statePtr, int reorderNum)
     statePtr->reservation[unit].exTimeLeft = INTEXEC;
     statePtr->regResult[field1(instr)].valid = 0;
     statePtr->regResult[field1(instr)].reorderNum = reorderNum;
-  }
-  else if (op == BEQZ)
-  {
-    if (statePtr->regResult[field0(instr)].valid)
-    {
+  } else if (op == BEQZ) {
+    if (statePtr->regResult[field0(instr)].valid) {
       statePtr->reservation[unit].Vj = statePtr->regFile[field0(instr)];
       statePtr->reservation[unit].Qj = -1;
-    }
-    else
-    {
+    } else {
       statePtr->reservation[unit].Qj =
           statePtr->regResult[field0(instr)].reorderNum;
     }
     statePtr->reservation[unit].Vk = statePtr->pc + 1;
     statePtr->reservation[unit].Qk = -1;
     statePtr->reservation[unit].exTimeLeft = BRANCHEXEC;
-  }
-  else if (op == J)
-  {
+  } else if (op == J) {
     statePtr->reservation[unit].Vj = 0;
     statePtr->reservation[unit].Qj = -1;
     statePtr->reservation[unit].Vk = statePtr->pc + 1;
     statePtr->reservation[unit].Qk = -1;
     statePtr->reservation[unit].exTimeLeft = INTEXEC;
-  }
-  else
-  {
+  } else {
     statePtr->reservation[unit].Vj = 0;
     statePtr->reservation[unit].Qj = -1;
     statePtr->reservation[unit].Vk = 0;
@@ -552,8 +467,7 @@ void issueInstr(int instr, int unit, machineState *statePtr, int reorderNum)
   }
 }
 
-int checkReorder(machineState *statePtr, int *headRB, int *tailRB)
-{
+int checkReorder(machineState *statePtr) {
   /*
    * [TODO]
    * 在ROB的队尾检查是否有空闲的空间, 如果有, 返回空闲项目的编号.
@@ -561,18 +475,14 @@ int checkReorder(machineState *statePtr, int *headRB, int *tailRB)
    * 新的指令被添加到队列的末尾, 指令提交则是从队首进行的.
    * 当队列的首指针或尾指针到达数组中的最后一项时, 它应滚动到数组的第一项.
    */
-  if (tailRB - headRB == RBSIZE)
-  {
+  if (statePtr->tailRB - statePtr->headRB == RBSIZE) {
     return -1;
-  }
-  else
-  {
-    return tailRB;
+  } else {
+    return statePtr->tailRB;
   }
 }
 
-int getResult(resStation rStation, machineState *statePtr)
-{
+int getResult(resStation rStation, machineState *statePtr) {
   int op, immed, function, address;
 
   /*
@@ -586,61 +496,38 @@ int getResult(resStation rStation, machineState *statePtr)
   function = func(rStation.instr);
   address = jumpAddr(rStation.instr);
 
-  if (op == ANDI)
-  {
-    return rStation.Vj & immed;
-  }
-  else if (op == ADDI)
-  {
-    return rStation.Vj + immed;
-  }
-  else if (op == regRegALU)
-  {
-    if (function == addFunc)
-    {
+  if (op == ANDI) {
+    return rStation.Vj & convertNum16(immed);
+  } else if (op == ADDI) {
+    return rStation.Vj + convertNum16(immed);
+  } else if (op == regRegALU) {
+    if (function == addFunc) {
       return rStation.Vj + rStation.Vk;
-    }
-    else if (function == subFunc)
-    {
+    } else if (function == subFunc) {
       return rStation.Vj - rStation.Vk;
-    }
-    else if (function == andFunc)
-    {
+    } else if (function == andFunc) {
       return rStation.Vj & rStation.Vk;
     }
-  }
-  else if (op == LW)
-  {
+  } else if (op == LW) {
     return statePtr->memory[rStation.Vj + convertNum16(immed)];
-  }
-  else if (op == SW)
-  {
-    return statePtr->reorderBuf[rStation.reorderNum].storeAddress = rStation.Vj + convertNum16(immed);
-  }
-  else if (op == BEQZ)
-  {
-    if (rStation.Vj == 0)
-    {
+  } else if (op == SW) {
+    statePtr->reorderBuf[rStation.reorderNum].storeAddress =
+        rStation.Vj + convertNum16(immed);
+    return rStation.Vk;
+  } else if (op == BEQZ) {
+    if (rStation.Vj == 0) {
       return rStation.Vk + convertNum16(immed);
     }
-    else
-    {
-      return 0;
-    }
-  }
-  else if (op == J)
-  {
+    return -1;
+  } else if (op == J) {
     return rStation.Vk + convertNum26(address);
-  }
-  else
-  {
-    return 0;
+  } else {
+    return -1;
   }
 }
 
 /* 选作内容 */
-int getPrediction(machineState *statePtr)
-{
+int getPrediction(machineState *statePtr) {
   /*
    * [TODO]
    * 对给定的PC, 检查分支预测缓冲栈中是否有历史记录
@@ -649,8 +536,8 @@ int getPrediction(machineState *statePtr)
 }
 
 /* 选作内容 */
-void updateBTB(machineState *statePtr, int branchPC, int targetPC, int outcome)
-{
+void updateBTB(machineState *statePtr, int branchPC, int targetPC,
+               int outcome) {
   /*
    * [TODO]
    * 更新分支预测缓冲栈: 检查是否与缓冲栈中的项目匹配.
@@ -663,8 +550,7 @@ void updateBTB(machineState *statePtr, int branchPC, int targetPC, int outcome)
 }
 
 /* 选作内容 */
-int getTarget(machineState *statePtr, int reorderNum)
-{
+int getTarget(machineState *statePtr, int reorderNum) {
   /*
    * [TODO]
    * 检查分支指令是否已保存在分支预测缓冲栈中:
@@ -674,28 +560,24 @@ int getTarget(machineState *statePtr, int reorderNum)
    */
 }
 
-main(int argc, char *argv[])
-{
+main(int argc, char *argv[]) {
   FILE *filePtr;
   int pc, done, instr, i;
   char line[MAXLINELENGTH];
   machineState *statePtr;
   int memorySize;
   int success, newBuf, op, halt, unit;
-  int headRB, tailRB;
   int regA, regB, immed, address;
   int flush;
   int rbnum;
 
-  if (argc != 2)
-  {
+  if (argc != 2) {
     printf("error: usage: %s <machine-code file>\n", argv[0]);
-    exit(1);
+    exit(0);
   }
 
   filePtr = fopen(argv[1], "r");
-  if (filePtr == NULL)
-  {
+  if (filePtr == NULL) {
     printf("error: can't open file %s", argv[1]);
     perror("fopen");
     exit(1);
@@ -716,22 +598,16 @@ main(int argc, char *argv[])
    * 将机器指令读入到内存中
    */
 
-  for (i = 0; i < MEMSIZE; i++)
-  {
+  for (i = 0; i < MEMSIZE; i++) {
     statePtr->memory[i] = 0;
   }
   pc = 16;
   done = 0;
-  while (!done)
-  {
-    if (fgets(line, MAXLINELENGTH, filePtr) == NULL)
-    {
+  while (!done) {
+    if (fgets(line, MAXLINELENGTH, filePtr) == NULL) {
       done = 1;
-    }
-    else
-    {
-      if (sscanf(line, "%d", &instr) != 1)
-      {
+    } else {
+      if (sscanf(line, "%d", &instr) != 1) {
         printf("error in reading address %d\n", pc);
         exit(1);
       }
@@ -743,7 +619,6 @@ main(int argc, char *argv[])
   }
 
   memorySize = pc;
-  halt = 0;
 
   /*
    * 状态初始化
@@ -751,38 +626,32 @@ main(int argc, char *argv[])
 
   statePtr->pc = 16;
   statePtr->cycles = 0;
-  for (i = 0; i < NUMREGS; i++)
-  {
+  for (i = 0; i < NUMREGS; i++) {
     statePtr->regFile[i] = 0;
   }
-  for (i = 0; i < NUMUNITS; i++)
-  {
+  for (i = 0; i < NUMUNITS; i++) {
     statePtr->reservation[i].busy = 0;
   }
-  for (i = 0; i < RBSIZE; i++)
-  {
+  for (i = 0; i < RBSIZE; i++) {
     statePtr->reorderBuf[i].busy = 0;
   }
 
-  headRB = -1;
-  tailRB = -1;
+  statePtr->headRB = 0;
+  statePtr->tailRB = 0;
+  statePtr->clear = false;
 
-  for (i = 0; i < NUMREGS; i++)
-  {
+  for (i = 0; i < NUMREGS; i++) {
     statePtr->regResult[i].valid = 1;
   }
-  for (i = 0; i < BTBSIZE; i++)
-  {
+  for (i = 0; i < BTBSIZE; i++) {
     statePtr->btBuf[i].valid = 0;
   }
 
   /*
    * 处理指令
    */
-
-  while (1)
-  { /* 执行循环:你应该在执行halt指令时跳出这个循环 */
-
+  while (1) {
+    /* 执行循环:你应该在执行halt指令时跳出这个循环 */
     printState(statePtr, memorySize);
 
     /*
@@ -796,82 +665,68 @@ main(int argc, char *argv[])
      *     对内存写操作, 修改内存.
      * 在完成清空或提交操作后, 不要忘了释放保留栈并更新队列的首指针.
      */
-    if (tailRB >= 0)
-    {
-      if (statePtr->reorderBuf[headRB].instrStatus == COMMITTING)
-      {
-        if (statePtr->reorderBuf[headRB].result != 0 &&
-            (opcode(statePtr->reorderBuf[headRB].instr) == J ||
-             opcode(statePtr->reorderBuf[headRB].instr) == BEQZ))
-        {
-          /* （条件）跳转 */
-          statePtr->pc = statePtr->reorderBuf[headRB].result;
-          for (int i = 0; i < RBSIZE; i++)
-          {
-            statePtr->reorderBuf[i].busy = 0;
-          }
-          for (int i = 0; i < NUMUNITS; i++)
-          {
-            statePtr->reservation[i].busy = 0;
-          }
-          for (int i = 0; i < NUMREGS; i++)
-          {
-            statePtr->regResult[i].valid = 0;
-          }
-          headRB = -1;
-          tailRB = -1;
-          continue;
+    if (statePtr->reorderBuf[statePtr->headRB].instrStatus == COMMITTING) {
+      if (opcode(statePtr->reorderBuf[statePtr->headRB].instr) == J ||
+          (opcode(statePtr->reorderBuf[statePtr->headRB].instr) == BEQZ &&
+           statePtr->clear == true)) {
+        /* 条件跳转利用bool确定是否跳 */
+        statePtr->pc = statePtr->reorderBuf[statePtr->headRB].result;
+        memset(statePtr->reorderBuf, 0, RBSIZE);
+        memset(statePtr->regResult, 0, NUMUNITS);
+        for (int i = 0; i < NUMREGS; i++) {
+          statePtr->regResult[i].valid = 1;
         }
-        else
-        {
-          updateRes(headRB, statePtr, statePtr->reorderBuf[headRB].result);
-          op = opcode(statePtr->reorderBuf[headRB].instr);
-          if (op == LW)
-          {
-            int regNum = field1(statePtr->reorderBuf[headRB].instr);
-            statePtr->regFile[regNum] = statePtr->reorderBuf[headRB].result;
-            statePtr->regResult[regNum].valid = 1;
-          }
-          else if (op == SW)
-          {
-            statePtr->memory[statePtr->reorderBuf[headRB].storeAddress] = statePtr->reorderBuf[headRB].result;
-          }
-          else if (op == regRegALU)
-          {
-            int regNum = field2(statePtr->reorderBuf[headRB].instr);
-            statePtr->regFile[regNum] = statePtr->reorderBuf[headRB].result;
-            statePtr->regResult[regNum].valid = 1;
-          }
-          else if (op == ADDI || op == ANDI)
-          {
-            int regNum = field1(statePtr->reorderBuf[headRB].instr);
-            statePtr->regFile[regNum] = statePtr->reorderBuf[headRB].result;
-            statePtr->regResult[regNum].valid = 1;
-          }
-          statePtr->reorderBuf[headRB].busy = 0;
-          headRB += 1;
-          headRB %= RBSIZE;
-          if (op == HALT)
-          {
-            break;
-          }
+        statePtr->headRB = 0;
+        statePtr->tailRB = 0;
+        statePtr->clear = false;
+        continue;
+      } else {
+        /* 这里需要再update一次，考虑：先writing
+         result然后紧接issue一个有数据相关的指令*/
+        op = opcode(statePtr->reorderBuf[statePtr->headRB].instr);
+        if (op == HALT) {
+          break;
+        } else if (op == LW) {
+          int regNum = field1(statePtr->reorderBuf[statePtr->headRB].instr);
+          statePtr->regFile[regNum] =
+              statePtr->reorderBuf[statePtr->headRB].result;
+          statePtr->regResult[regNum].valid = 1;
+        } else if (op == SW) {
+          statePtr
+              ->memory[statePtr->reorderBuf[statePtr->headRB].storeAddress] =
+              statePtr->reorderBuf[statePtr->headRB].result;
+        } else if (op == regRegALU) {
+          int regNum = field2(statePtr->reorderBuf[statePtr->headRB].instr);
+          statePtr->regFile[regNum] =
+              statePtr->reorderBuf[statePtr->headRB].result;
+          statePtr->regResult[regNum].valid = 1;
+        } else if (op == ADDI || op == ANDI) {
+          int regNum = field1(statePtr->reorderBuf[statePtr->headRB].instr);
+          statePtr->regFile[regNum] =
+              statePtr->reorderBuf[statePtr->headRB].result;
+          statePtr->regResult[regNum].valid = 1;
         }
+        updateRes(statePtr->headRB, statePtr,
+                  statePtr->reorderBuf[statePtr->headRB].result);
+        statePtr->reorderBuf[statePtr->headRB].busy = 0;
+        statePtr->headRB += 1;
+        statePtr->headRB %= RBSIZE;
       }
     }
     /*
      * [TODO]
      * 选作内容:
      * 在提交的时候, 我们知道跳转指令的最终结果.
-     * 有三种可能的情况: 预测跳转成功, 预测跳转不成功, 不能预测(因为分支预测缓冲栈中没有对应的项目).
-     * 如果我们预测跳转成功:
+     * 有三种可能的情况: 预测跳转成功, 预测跳转不成功,
+     * 不能预测(因为分支预测缓冲栈中没有对应的项目). 如果我们预测跳转成功:
      *     如果我们的预测是正确的, 只需要继续执行就可以了;
-     *     如果我们的预测是错误的, 即实际没有发生跳转, 就必须重新设置正确的PC值, 并清空流水线.
-     * 如果我们预测跳转不成功:
+     *     如果我们的预测是错误的, 即实际没有发生跳转,
+     * 就必须重新设置正确的PC值, 并清空流水线. 如果我们预测跳转不成功:
      *     如果预测是正确的, 继续执行;
-     *     如果预测是错误的, 即实际上发生了跳转, 就必须将PC设置为跳转目标, 并清空流水线.
-     * 如果我们不能预测跳转是否成功:
-     *     如果跳转成功, 仍然需要清空流水线, 将PC修改为跳转目标.
-     * 在遇到分支时, 需要更新分支预测缓冲站的内容.
+     *     如果预测是错误的, 即实际上发生了跳转, 就必须将PC设置为跳转目标,
+     * 并清空流水线. 如果我们不能预测跳转是否成功: 如果跳转成功,
+     * 仍然需要清空流水线, 将PC修改为跳转目标. 在遇到分支时,
+     * 需要更新分支预测缓冲站的内容.
      */
 
     /*
@@ -903,92 +758,86 @@ main(int argc, char *argv[])
 
     /*
      * [TODO]
-     * 最后, 当我们处理完了保留栈中的所有指令后, 检查是否能够发射一条新的指令.
-     * 首先检查是否有空闲的保留栈, 如果有, 再检查ROB中是否有空闲的空间,
-     * 如果也能找到空闲空间, 发射指令.
+     * 最后, 当我们处理完了保留栈中的所有指令后,
+     * 检查是否能够发射一条新的指令. 首先检查是否有空闲的保留栈, 如果有,
+     * 再检查ROB中是否有空闲的空间, 如果也能找到空闲空间, 发射指令.
      */
-    for (int i = 0; i < RBSIZE; i++)
-    {
-      int status = statePtr->reorderBuf[i].instrStatus;
-      if (status == WRITINGRESULT)
-      {
-        updateRes(i, statePtr, statePtr->reorderBuf[i].result);
-        statePtr->reorderBuf[i].instrStatus = COMMITTING;
-        statePtr->reorderBuf[i].busy = 0;
-      }
-      else if (status == EXECUTING)
-      {
-        statePtr->reservation[statePtr->reorderBuf[i].execUnit].exTimeLeft -= 1;
-        if (statePtr->reservation[statePtr->reorderBuf[i].execUnit].exTimeLeft == 0)
-        {
-          statePtr->reorderBuf[i].result = getResult(statePtr->reservation[statePtr->reorderBuf[i].execUnit], statePtr);
-          statePtr->reorderBuf[i].instrStatus = WRITINGRESULT;
+    for (int i = 0; i < RBSIZE; i++) {
+      if (statePtr->reorderBuf[i].busy == 1) {
+        int status = statePtr->reorderBuf[i].instrStatus;
+        if (status == ISSUE) {
+          if (statePtr->reservation[statePtr->reorderBuf[i].execUnit].Qj ==
+                  -1 &&
+              statePtr->reservation[statePtr->reorderBuf[i].execUnit].Qk ==
+                  -1) {
+            statePtr->reorderBuf[i].instrStatus = EXECUTING;
+          }
+        } else if (status == EXECUTING) {
+          statePtr->reservation[statePtr->reorderBuf[i].execUnit].exTimeLeft -=
+              1;
+          if (statePtr->reservation[statePtr->reorderBuf[i].execUnit]
+                  .exTimeLeft == 0) {
+            statePtr->reorderBuf[i].result = getResult(
+                statePtr->reservation[statePtr->reorderBuf[i].execUnit],
+                statePtr);
+            if (statePtr->reorderBuf[i].result != -1 &&
+                opcode(statePtr->reorderBuf[i].instr) == BEQZ) {
+              statePtr->clear = true;
+            }
+            statePtr->reorderBuf[i].instrStatus = WRITINGRESULT;
+          }
+        } else if (status == WRITINGRESULT) {
+          updateRes(i, statePtr, statePtr->reorderBuf[i].result);
+          statePtr->reservation[statePtr->reorderBuf[i].execUnit].busy = 0;
+          statePtr->reorderBuf[i].instrStatus = COMMITTING;
         }
       }
-      else if (status == ISSUE)
-      {
-        if (statePtr->reservation[statePtr->reorderBuf[i].execUnit].Qj == -1 && statePtr->reservation[statePtr->reorderBuf[i].execUnit].Qk == -1)
-        {
-          statePtr->reorderBuf[i].instrStatus = EXECUTING;
+    }
+    if (statePtr->pc < memorySize) {
+      int rob = checkReorder(statePtr);
+      if (rob != -1) {
+        int newInstr = statePtr->memory[statePtr->pc];
+        int op = opcode(newInstr);
+        bool validRes = false;
+        int resNum = 0;
+        if (op == LW) {
+          if (statePtr->reservation[0].busy == 0) {
+            validRes = true;
+            resNum = 0;
+          } else if (statePtr->reservation[1].busy == 0) {
+            validRes = true;
+            resNum = 1;
+          }
+        } else if (op == SW) {
+          if (statePtr->reservation[2].busy == 0) {
+            validRes = true;
+            resNum = 2;
+          } else if (statePtr->reservation[3].busy == 0) {
+            validRes = true;
+            resNum = 3;
+          }
+        } else {
+          if (statePtr->reservation[4].busy == 0) {
+            validRes = true;
+            resNum = 4;
+          } else if (statePtr->reservation[5].busy == 0) {
+            validRes = true;
+            resNum = 5;
+          }
+        }
+        if (validRes) {
+          issueInstr(newInstr, resNum, statePtr, rob);
+          statePtr->tailRB += 1;
+          statePtr->tailRB %= RBSIZE;
+          statePtr->pc += 1;
         }
       }
-    }
-    int newInstr = statePtr->memory[statePtr->pc];
-    int op = opcode(newInstr);
-    int validRes = 0;
-    int resNum = 0;
-    if (op == LW)
-    {
-      if (statePtr->reservation[0].busy == 0)
-      {
-        validRes = 1;
-        resNum = 0;
-      }
-      else if (statePtr->reservation[1].busy == 1)
-      {
-        validRes = 1;
-        resNum = 1;
-      }
-    }
-    else if (op == SW)
-    {
-      if (statePtr->reservation[2].busy == 0)
-      {
-        validRes = 1;
-        resNum = 2;
-      }
-      else if (statePtr->reservation[3].busy == 1)
-      {
-        validRes = 1;
-        resNum = 3;
-      }
-    }
-    else
-    {
-      if (statePtr->reservation[4].busy == 0)
-      {
-        validRes = 1;
-        resNum = 4;
-      }
-      else if (statePtr->reservation[5].busy == 1)
-      {
-        validRes = 1;
-        resNum = 5;
-      }
-    }
-    int rob = checkReorder(statePtr, headRB, tailRB);
-    if (validRes == 1 && rob != -1)
-    {
-      issueInstr(newInstr, resNum, statePtr, rob);
-      tailRB += 1;
-      tailRB %= RBSIZE;
-      statePtr->pc += 1;
     }
     /*
      * [TODO]
      * 选作内容:
-     * 在发射跳转指令时, 将PC修改为正确的目标: 是pc = pc+1, 还是pc = 跳转目标?
-     * 在发射其他的指令时, 只需要设置pc = pc+1.
+     * 在发射跳转指令时, 将PC修改为正确的目标: 是pc = pc+1, 还是pc =
+     * 跳转目标? 在发射其他的指令时, 只需要设置pc = pc+1.
      */
 
     /*
