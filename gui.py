@@ -65,6 +65,10 @@ def run_all(root: Tk, res, rob, reg, mem):
         rob.delete(item)
     for item in res.get_children():
         res.delete(item)
+    for i in range(RES_STATION_SIZE):
+        res.insert('', END, iid=i, value=[i])
+    for i in range(ROB_SIZE):
+        rob.insert('', END, iid=i, value=[i])
     messagebox.showinfo("Program finished!", "Halt!")
 
 
@@ -196,6 +200,7 @@ def init_asm(root):
 def main():
     root = Tk()
     root.resizable(width=0, height=0)
+    root.title("Tomasulo Algorithm Demo")
 
     Label(root).grid(row=1)
 
@@ -229,17 +234,17 @@ def main():
 
     Label(root).grid(row=0)
     Button(root, text="choose", command=lambda: select_asm_file(
-        asm)).place(relx=0.4, rely=0)
+        asm)).place(relx=0.4, rely=0.01)
     Button(root, text="run_all", command=lambda: run_all(
-        root, res_station, rob, regs, mems)).place(relx=0.43, rely=0)
+        root, res_station, rob, regs, mems)).place(relx=0.43, rely=0.01)
     Button(root, text="pause", command=lambda: pause()).place(
-        relx=0.46, rely=0)
+        relx=0.46, rely=0.01)
     Button(root, text="run_one_step", command=lambda: run_one_step(
-        root, res_station, rob, regs, mems)).place(relx=0.49, rely=0)
+        root, res_station, rob, regs, mems)).place(relx=0.49, rely=0.01)
     Button(root, text="backward_one_step", command=lambda: backward(
-        root, res_station, rob, regs, mems)).place(relx=0.54, rely=0)
+        root, res_station, rob, regs, mems)).place(relx=0.54, rely=0.01)
     Button(root, text="clear", command=lambda: restart(
-        root, res_station, rob, regs, mems, asm)).place(relx=0.61, rely=0)
+        root, res_station, rob, regs, mems, asm)).place(relx=0.61, rely=0.01)
     Label(root).grid(row=6)
     root.mainloop()
 
