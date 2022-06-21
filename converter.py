@@ -120,19 +120,21 @@ def convert(parse_command, lineno):
             return opcode.ljust(32, '0')
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-file', help='path of input file')
-    args = parser.parse_args()
-    file = args.file
+def convert_all(file):
+    lines = []
+    global sign_dict, line_list
+    sign_dict.clear()
+    line_list.clear()
     with open(file, 'r') as input:
         basename = os.path.basename(file).split('.')[0]
         with open(f'./convert/{basename}-converted.txt', 'w') as output:
             line = input.readline()
+            lines.append(line)
             linecnt = 0
             while line:
                 init_sign_dict(line, linecnt)
                 line = input.readline()
+                lines.append(line)
                 linecnt += 1
             # print(line_list)
             for i in range(len(line_list)):
@@ -148,3 +150,12 @@ if __name__ == "__main__":
                     # print(bin_str)
                     converted = str(int(bin_str, 2)) + "\n"
                     output.write(converted)
+    return (lines, f'./convert/{basename}-converted.txt')
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-file', help='path of input file')
+    args = parser.parse_args()
+    file = args.file
+    convert_all(file)
