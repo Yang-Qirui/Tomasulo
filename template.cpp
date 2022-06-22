@@ -668,7 +668,8 @@ machineState run_one_tick(machineState presentPtr) {
         int regNum = field1(statePtr->reorderBuf[statePtr->headRB].instr);
         statePtr->regFile[regNum] =
             statePtr->reorderBuf[statePtr->headRB].result;
-        statePtr->regResult[regNum].valid = 1;
+        if (statePtr->regResult[regNum].reorderNum == statePtr->headRB)
+          statePtr->regResult[regNum].valid = 1;
       } else if (op == SW) {
         statePtr->memory[statePtr->reorderBuf[statePtr->headRB].storeAddress] =
             statePtr->reorderBuf[statePtr->headRB].result;
@@ -676,12 +677,14 @@ machineState run_one_tick(machineState presentPtr) {
         int regNum = field2(statePtr->reorderBuf[statePtr->headRB].instr);
         statePtr->regFile[regNum] =
             statePtr->reorderBuf[statePtr->headRB].result;
-        statePtr->regResult[regNum].valid = 1;
+        if (statePtr->regResult[regNum].reorderNum == statePtr->headRB)
+          statePtr->regResult[regNum].valid = 1;
       } else if (op == ADDI || op == ANDI) {
         int regNum = field1(statePtr->reorderBuf[statePtr->headRB].instr);
         statePtr->regFile[regNum] =
             statePtr->reorderBuf[statePtr->headRB].result;
-        statePtr->regResult[regNum].valid = 1;
+        if (statePtr->regResult[regNum].reorderNum == statePtr->headRB)
+          statePtr->regResult[regNum].valid = 1;
       }
       updateRes(statePtr->headRB, statePtr,
                 statePtr->reorderBuf[statePtr->headRB].result);
